@@ -38,3 +38,31 @@ export function parseKubeMemory(mem: string): number {
   if (mem.endsWith('Gi')) return parseInt(mem) * 1024 * 1024 * 1024
   return parseInt(mem) || 0
 }
+
+export function renderMarkdown(text: string): string {
+  // Protect code blocks first, replace after other transforms
+  const codeBlocks: string[] = []
+  let result = text.replace(/```[\w]*\n?([\s\S]*?)```/g, (_, code) => {
+    const idx = codeBlocks.push(`<pre><code>${code.trimEnd()}</code></pre>`) - 1
+    return `\x00CODE${idx}\x00`
+  })
+
+  result = result
+    .replace(/`([^`\n]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+    // Wrap consecutive list lines in <ul>
+    .replace(/((?:^[*-] .+(?:\n|$))+)/gm, (block) => {
+      const items = block.trim().split('\n').filter(Boolean)
+        .map((line) => `<li>${line.replace(/^[*-] /, '')}</li>`).join('')
+      return `<ul>${items}</ul>`
+    })
+    .replace(/\n\n/g, '<br/><br/>')
+    .replace(/\n/g, '<br/>')
+    // Restore code blocks
+    .replace(/\x00CODE(\d+)\x00/g, (_, i) => codeBlocks[parseInt(i)])
+
+  return result
+}

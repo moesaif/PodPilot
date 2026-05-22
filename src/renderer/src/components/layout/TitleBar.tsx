@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Minus, Square, X, Maximize2 } from 'lucide-react'
 import { useClusterStore } from '../../stores/clusterStore'
+import { Logo } from '../ui/Logo'
 
 export function TitleBar(): React.ReactElement {
   const [isMaximized, setIsMaximized] = useState(false)
@@ -16,10 +17,8 @@ export function TitleBar(): React.ReactElement {
   return (
     <div className="titlebar-drag flex items-center h-10 bg-surface border-b border-border flex-shrink-0 select-none">
       {/* App identity */}
-      <div className="flex items-center gap-2 px-4">
-        <div className="w-5 h-5 rounded bg-accent flex items-center justify-center">
-          <span className="text-white text-2xs font-bold">P</span>
-        </div>
+      <div className="flex items-center gap-2.5 px-4">
+        <Logo size={22} />
         <span className="text-text-primary font-semibold text-sm tracking-tight">PodPilot</span>
       </div>
 

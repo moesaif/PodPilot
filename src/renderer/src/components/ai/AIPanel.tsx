@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { Send, X, Bot, Trash2, Cpu, Loader2, CheckCircle2, Wrench } from 'lucide-react'
 import { useAIStore } from '../../stores/aiStore'
 import { useClusterStore } from '../../stores/clusterStore'
-import { cn } from '../../lib/utils'
+import { cn, renderMarkdown } from '../../lib/utils'
 
 type ToolCall = { id: string; name: string; input: Record<string, unknown>; status: 'running' | 'done' }
 
@@ -35,20 +35,6 @@ function ToolCallBadge({ tc }: { tc: ToolCall }) {
   )
 }
 
-function renderMarkdown(text: string): string {
-  return text
-    .replace(/```(\w+)?\n?([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-    .replace(/^\* (.+)$/gm, '<li>$1</li>')
-    .replace(/^- (.+)$/gm, '<li>$1</li>')
-    .replace(/\n\n/g, '<br/><br/>')
-    .replace(/\n/g, '<br/>')
-}
-
 const SUGGESTED_PROMPTS = [
   'Why is this pod in CrashLoopBackOff?',
   'Generate a deployment YAML for nginx with 3 replicas',
@@ -63,17 +49,37 @@ export function AIPanel({ onClose }: { onClose: () => void }): React.ReactElemen
   const [toolCalls, setToolCalls] = useState<ToolCall[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const pendingDelta = useRef('')
+  const rafId = useRef<number | null>(null)
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, streamingContent, toolCalls])
+    messagesEndRef.current?.scrollIntoView({ behavior: 'instant' })
+  }, [messages])
 
   useEffect(() => {
+    if (streaming) messagesEndRef.current?.scrollIntoView({ behavior: 'instant' })
+  }, [streamingContent, toolCalls])
+
+  useEffect(() => {
+    const flush = () => {
+      if (pendingDelta.current) {
+        appendStreamingContent(pendingDelta.current)
+        pendingDelta.current = ''
+      }
+      rafId.current = null
+    }
     const unsub = window.api.ai.onStream(({ delta, done }) => {
-      if (!done) appendStreamingContent(delta)
-      else { finalizeStream(); setToolCalls([]) }
+      if (!done) {
+        pendingDelta.current += delta
+        if (!rafId.current) rafId.current = requestAnimationFrame(flush)
+      } else {
+        if (rafId.current) { cancelAnimationFrame(rafId.current); rafId.current = null }
+        if (pendingDelta.current) { appendStreamingContent(pendingDelta.current); pendingDelta.current = '' }
+        finalizeStream()
+        setToolCalls([])
+      }
     })
-    return unsub
+    return () => { unsub(); if (rafId.current) cancelAnimationFrame(rafId.current) }
   }, [])
 
   useEffect(() => {
@@ -158,7 +164,7 @@ export function AIPanel({ onClose }: { onClose: () => void }): React.ReactElemen
       )}
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3">
+      <div className="flex-1 overflow-y-auto p-3 space-y-3" style={{ userSelect: 'text', cursor: 'default' }}>
         {messages.length === 0 && !streaming && (
           <div className="space-y-3">
             <div className="text-center py-4">
@@ -200,7 +206,7 @@ export function AIPanel({ onClose }: { onClose: () => void }): React.ReactElemen
                   dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }}
                 />
               ) : (
-                <p className="text-xs whitespace-pre-wrap">{msg.content}</p>
+                <p className="ai-text text-xs whitespace-pre-wrap">{msg.content}</p>
               )}
             </div>
           </div>
@@ -220,8 +226,7 @@ export function AIPanel({ onClose }: { onClose: () => void }): React.ReactElemen
               )}
               {streamingContent ? (
                 <div className="rounded-lg px-3 py-2 bg-elevated border border-border">
-                  <div className="markdown-content text-xs" dangerouslySetInnerHTML={{ __html: renderMarkdown(streamingContent) }} />
-                  <span className="inline-block w-1 h-3 bg-purple ml-0.5 animate-pulse" />
+                  <p className="ai-text text-xs whitespace-pre-wrap leading-relaxed text-text-primary">{streamingContent}<span className="inline-block w-1 h-3 bg-purple ml-0.5 animate-pulse align-middle" /></p>
                 </div>
               ) : toolCalls.length === 0 ? (
                 <div className="flex gap-1 pt-1">

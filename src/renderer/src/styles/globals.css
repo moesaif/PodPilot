@@ -131,7 +131,19 @@
   border-radius: 3px;
 }
 
+/* AI message text — always selectable */
+.ai-text {
+  user-select: text;
+  cursor: text;
+}
+
 /* Markdown content */
+.markdown-content {
+  color: var(--text-secondary);
+  user-select: text;
+  cursor: text;
+  line-height: 1.6;
+}
 .markdown-content h1, .markdown-content h2, .markdown-content h3 {
   color: var(--text-primary);
   margin: 0.75em 0 0.25em;
@@ -171,3 +183,5 @@
 .markdown-content li { margin: 0.2em 0; }
 .markdown-content strong { color: var(--text-primary); }
 .markdown-content a { color: var(--accent); }
+.markdown-content ul { list-style: disc; padding-left: 1.5em; margin: 0.5em 0; }
+.markdown-content li { margin: 0.25em 0; color: var(--text-secondary); }
